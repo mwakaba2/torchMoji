@@ -90,6 +90,7 @@ ENV/
 
 # Local data
 /data/local
+/data/Sentence
 
 # Vim swapfiles
 *.swp
@@ -106,3 +107,5 @@ pytorch_model.bin
 
 # data
 *.csv
+
+.DS_Store
