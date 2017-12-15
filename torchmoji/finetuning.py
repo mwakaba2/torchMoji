@@ -496,7 +496,6 @@ def fit_model(model, loss_op, optim_op, train_gen, val_gen, epochs,
         checkpoint_path: Filepath where weights will be checkpointed to
             during training. This file will be rewritten by the function.
         patience: Patience for callback methods.
-        verbose: Verbosity flag.
 
     # Returns:
         Accuracy of the trained model, ONLY if 'evaluate' is set.

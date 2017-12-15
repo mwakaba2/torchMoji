@@ -212,7 +212,7 @@ def class_avg_tune_trainable(model, nb_classes, loss_op, optim_op, train, val, t
         if verbose:
             print("Training..")
         fit_model(model, loss_op, optim_op, train_gen, [(X_val_resamp, y_val_resamp)],
-                  nb_epochs, checkpoint_weight_path, patience, verbose=0)
+                  nb_epochs, checkpoint_weight_path, patience)
 
         # Reload the best weights found to avoid overfitting
         # Wait a bit to allow proper closing of weights file
