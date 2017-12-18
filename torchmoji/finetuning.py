@@ -7,6 +7,7 @@ import sys
 import uuid
 from time import sleep
 from io import open
+from collections import Counter
 
 import math
 import pickle
@@ -173,20 +174,26 @@ def find_f1_threshold(model, val_gen, test_gen, average='binary'):
     f1_scores = []
 
     model.eval()
-    val_out = [(y, model(X)) for X, y in val_gen]
-    y_val, y_pred_val = (list(t) for t in zip(*val_out))
 
-    test_out = [(y, model(X)) for X, y in test_gen]
-    y_test, y_pred_test = (list(t) for t in zip(*val_out))
+    val_out = [(y.float().squeeze().numpy(), model(X).float().squeeze().numpy()) for X, y in val_gen]
+    y_val, y_pred_val = (list(t) for t in zip(*val_out))
+    y_val_flatten = [ val for sublist in y_val for val in sublist]
+    y_pred_val_flatten  = [ val for sublist in y_pred_val for val in sublist]
+
+    test_out = [(y.float().squeeze().numpy(), model(X).float().squeeze().numpy()) for X, y in test_gen]
+    y_test, y_pred_test = (list(t) for t in zip(*test_out))
+    y_test_flatten = [ test for sublist in y_test for test in sublist]
+    y_pred_test_flatten  = [ test for sublist in y_pred_test for test in sublist]
 
     for t in thresholds:
-        y_pred_val_ind = (y_pred_val > t)
-        f1_val = f1_score(y_val, y_pred_val_ind, average=average)
+        y_pred_val_ind = (y_pred_val_flatten > t).astype(float)
+        f1_val = f1_score(y_val_flatten, y_pred_val_ind, average=average)
+        print(Counter(y_pred_val_ind), f1_val)
         f1_scores.append(f1_val)
 
     best_t = thresholds[np.argmax(f1_scores)]
-    y_pred_ind = (y_pred_test > best_t)
-    f1_test = f1_score(y_test, y_pred_ind, average=average)
+    y_pred_ind = (y_pred_test_flatten > best_t).astype(float)
+    f1_test = f1_score(y_test_flatten, y_pred_ind, average=average)
     return f1_test, best_t
 
 
@@ -279,7 +286,7 @@ def finetune(model, texts, labels, nb_classes, batch_size, method,
 
 
 def tune_trainable(model, loss_op, optim_op, train_gen, val_gen, test_gen,
-                   nb_epochs, checkpoint_path, patience=5, evaluate='acc',
+                   nb_epochs, checkpoint_path, patience=2, evaluate='acc',
                    verbose=2):
     """ Finetunes the given model using the accuracy measure.
 
@@ -368,7 +375,7 @@ def evaluate_using_acc(model, test_gen):
 
 
 def chain_thaw(model, train_gen, val_gen, test_gen, nb_epochs, checkpoint_path, loss_op,
-               patience=5, initial_lr=0.001, next_lr=0.0001, embed_l2=1E-6, evaluate='acc', verbose=1):
+               patience=2, initial_lr=0.001, next_lr=0.0001, embed_l2=1E-6, evaluate='acc', verbose=1):
     """ Finetunes given model using chain-thaw and evaluates using accuracy.
 
     # Arguments:

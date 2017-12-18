@@ -48,7 +48,7 @@ def relabel(y, current_label_nr, nb_classes):
 
 
 def class_avg_finetune(model, texts, labels, nb_classes, batch_size,
-                       method, epoch_size=5000, nb_epochs=1000, embed_l2=1E-6,
+                       method, epoch_size=5000, nb_epochs=20, embed_l2=1E-6,
                        verbose=True):
     """ Compiles and finetunes the given model.
 
@@ -152,20 +152,23 @@ def prepare_labels(y_train, y_val, y_test, iter_i, nb_classes):
     y_test_new = relabel(y_test, iter_i, nb_classes)
     return y_train_new, y_val_new, y_test_new
 
-def prepare_generators(X_train, y_train_new, X_val, y_val_new, batch_size, epoch_size):
+def prepare_generators(X_train, y_train_new, X_val, y_val_new, X_test, y_test_new, batch_size, epoch_size):
     # Create sample generators
     # Make a fixed validation set to avoid fluctuations in validation
     train_gen = get_data_loader(X_train, y_train_new, batch_size,
                                 extended_batch_sampler=True)
     val_gen = get_data_loader(X_val, y_val_new, epoch_size,
                               extended_batch_sampler=True)
+    test_gen = get_data_loader(X_test, y_test_new, epoch_size,
+                              extended_batch_sampler=True)
+
     X_val_resamp, y_val_resamp = next(iter(val_gen))
-    return train_gen, X_val_resamp, y_val_resamp
+    return train_gen, val_gen, test_gen, X_val_resamp, y_val_resamp
 
 
 def class_avg_tune_trainable(model, nb_classes, loss_op, optim_op, train, val, test,
                              epoch_size, nb_epochs, batch_size,
-                             init_weight_path, checkpoint_weight_path, patience=5,
+                             init_weight_path, checkpoint_weight_path, patience=2,
                              verbose=True):
     """ Finetunes the given model using the F1 measure.
 
@@ -205,8 +208,8 @@ def class_avg_tune_trainable(model, nb_classes, loss_op, optim_op, train, val, t
         model.load_state_dict(torch.load(init_weight_path))
         y_train_new, y_val_new, y_test_new = prepare_labels(y_train, y_val,
                                                             y_test, i, nb_classes)
-        train_gen, X_val_resamp, y_val_resamp = \
-            prepare_generators(X_train, y_train_new, X_val, y_val_new,
+        train_gen, val_gen, test_gen, X_val_resamp, y_val_resamp = \
+            prepare_generators(X_train, y_train_new, X_val, y_val_new, X_test, y_test_new,
                                batch_size, epoch_size)
 
         if verbose:
@@ -220,11 +223,7 @@ def class_avg_tune_trainable(model, nb_classes, loss_op, optim_op, train, val, t
         model.load_state_dict(torch.load(checkpoint_weight_path))
 
         # Evaluate
-        y_pred_val = model(X_val).cpu().numpy()
-        y_pred_test = model(X_test).cpu().numpy()
-
-        f1_test, best_t = find_f1_threshold(y_val_new, y_pred_val,
-                                            y_test_new, y_pred_test)
+        f1_test, best_t = find_f1_threshold(model, val_gen, test_gen)
         if verbose:
             print('f1_test: {}'.format(f1_test))
             print('best_t:  {}'.format(best_t))
@@ -235,7 +234,7 @@ def class_avg_tune_trainable(model, nb_classes, loss_op, optim_op, train, val, t
 
 def class_avg_chainthaw(model, nb_classes, loss_op, train, val, test, batch_size,
                         epoch_size, nb_epochs, checkpoint_weight_path,
-                        f1_init_weight_path, patience=5,
+                        f1_init_weight_path, patience=2,
                         initial_lr=0.001, next_lr=0.0001, verbose=True):
     """ Finetunes given model using chain-thaw and evaluates using F1.
         For a dataset with multiple classes, the model is trained once for
@@ -284,9 +283,10 @@ def class_avg_chainthaw(model, nb_classes, loss_op, train, val, test, batch_size
         model.load_state_dict(torch.load(f1_init_weight_path))
         y_train_new, y_val_new, y_test_new = prepare_labels(y_train, y_val,
                                                             y_test, i, nb_classes)
-        train_gen, X_val_resamp, y_val_resamp = \
-                prepare_generators(X_train, y_train_new, X_val, y_val_new,
-                                   batch_size, epoch_size)
+        train_gen, val_gen, test_gen, X_val_resamp, y_val_resamp = \
+            prepare_generators(X_train, y_train_new, X_val, y_val_new, X_test, y_test_new,
+                               batch_size, epoch_size)
+
 
         if verbose:
             print("Training..")
@@ -301,11 +301,7 @@ def class_avg_chainthaw(model, nb_classes, loss_op, train, val, test, batch_size
                             verbose=verbose)
 
         # Evaluate
-        y_pred_val = model(X_val).cpu().numpy()
-        y_pred_test = model(X_test).cpu().numpy()
-
-        f1_test, best_t = find_f1_threshold(y_val_new, y_pred_val,
-                                            y_test_new, y_pred_test)
+        f1_test, best_t = find_f1_threshold(model, val_gen, test_gen)
 
         if verbose:
             print('f1_test: {}'.format(f1_test))

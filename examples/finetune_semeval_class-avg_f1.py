@@ -22,18 +22,19 @@ import json
 from torchmoji.finetuning import load_benchmark
 from torchmoji.class_avg_finetuning import class_avg_finetune
 from torchmoji.model_def import torchmoji_transfer
-from torchmoji.global_variables import PRETRAINED_PATH
+from torchmoji.global_variables import PRETRAINED_PATH, VOCAB_PATH, ROOT_PATH
 
-DATASET_PATH = '../data/SE0714/raw.pickle'
+DATASET_PATH = '{}/data/SE0714/raw.pickle'.format(ROOT_PATH)
+
 nb_classes = 3
 
-with open('../model/vocabulary.json', 'r') as f:
+with open(VOCAB_PATH, 'r') as f:
     vocab = json.load(f)
 
 
 # Load dataset. Extend the existing vocabulary with up to 10000 tokens from
 # the training dataset.
-data = load_benchmark(DATASET_PATH, vocab, extend_with=10000)
+data = load_benchmark(DATASET_PATH, vocab, extend_with=1)
 
 # Set up model and finetune. Note that we have to extend the embedding layer
 # with the number of tokens added to the vocabulary.
